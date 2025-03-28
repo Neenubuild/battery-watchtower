@@ -106,10 +106,17 @@ export const fetchSystemConfig = async (): Promise<SystemConfig> => {
     .single();
   
   if (error) throw error;
-  return data;
+  if (!data) {
+    throw new Error('System configuration not found');
+  }
+  return data as SystemConfig;
 };
 
 export const updateSystemConfig = async (config: Partial<SystemConfig>): Promise<SystemConfig> => {
+  if (!config.id) {
+    throw new Error('System config ID is required for updates');
+  }
+  
   const { data, error } = await supabase
     .from('system_config')
     .update({ ...config, updated_at: new Date().toISOString() })
@@ -117,5 +124,8 @@ export const updateSystemConfig = async (config: Partial<SystemConfig>): Promise
     .single();
   
   if (error) throw error;
-  return data;
+  if (!data) {
+    throw new Error('Failed to update system configuration');
+  }
+  return data as SystemConfig;
 };

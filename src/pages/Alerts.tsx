@@ -217,7 +217,7 @@ const Alerts = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            <Badge variant={alert.severity === 'critical' ? 'destructive' : 'warning'}>
+                            <Badge variant={alert.severity === 'critical' ? 'destructive' : 'default'}>
                               {alert.severity === 'critical' ? 'Critical' : 'Warning'}
                             </Badge>
                           </TableCell>
@@ -280,7 +280,7 @@ const Alerts = () => {
                       {filteredAlerts.map((alert) => (
                         <TableRow key={alert.id}>
                           <TableCell>
-                            <Badge variant={alert.severity === 'critical' ? 'destructive' : 'warning'}>
+                            <Badge variant={alert.severity === 'critical' ? 'destructive' : 'default'}>
                               {alert.severity === 'critical' ? 'Critical' : 'Warning'}
                             </Badge>
                           </TableCell>
