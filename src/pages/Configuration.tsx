@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useBatteryData } from "@/hooks/useBatteryData";
 import { 
@@ -28,7 +27,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import * as z from "zod";
-import { Settings, Bell, Smartphone } from "lucide-react";
+import { Settings, Bell, Smartphone, Wifi } from "lucide-react";
 
 // Define the schema for system settings form
 const systemSettingsSchema = z.object({
