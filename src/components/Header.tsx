@@ -1,20 +1,25 @@
 
 import { useState, useEffect } from "react";
-import { Bell, User } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Bell, User, LogOut, Settings, UserCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Header() {
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
   const [alerts, setAlerts] = useState<number>(0);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const [userDisplayName, setUserDisplayName] = useState<string>("");
 
   useEffect(() => {
     // Update the date time every second
@@ -39,11 +44,28 @@ export function Header() {
       }
     }, 30000);
 
+    // Get user profile information
+    if (user) {
+      const getUserProfile = async () => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (!error && data) {
+          setUserDisplayName(data.display_name || user.email?.split('@')[0] || "User");
+        }
+      };
+      
+      getUserProfile();
+    }
+
     return () => {
       clearInterval(timer);
       clearInterval(alertTimer);
     };
-  }, [alerts, toast]);
+  }, [alerts, toast, user]);
 
   const clearAlerts = () => {
     setAlerts(0);
@@ -51,6 +73,10 @@ export function Header() {
       title: "Alerts Cleared",
       description: "All alerts have been acknowledged",
     });
+  };
+  
+  const handleSignOut = async () => {
+    await signOut();
   };
 
   return (
@@ -107,14 +133,51 @@ export function Header() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <User className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="relative">
+                <UserCircle className="h-5 w-5" />
+                {user && (
+                  <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-green-500 border-2 border-background"></div>
+                )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Logout</DropdownMenuItem>
+              {user ? (
+                <>
+                  <div className="px-2 py-1.5 text-sm font-medium text-center border-b">
+                    {userDisplayName || user.email?.split('@')[0] || "User"}
+                  </div>
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="cursor-pointer flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/configuration" className="cursor-pointer flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-500 flex items-center gap-2">
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link to="/auth" className="cursor-pointer">
+                      Login
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/auth?tab=signup" className="cursor-pointer">
+                      Create Account
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

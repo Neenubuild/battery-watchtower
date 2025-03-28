@@ -1,13 +1,16 @@
 
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, BatteryCharging, BatteryMedium, ExternalLink } from 'lucide-react';
+import { AlertCircle, BatteryCharging, BatteryMedium, ExternalLink, LogIn, UserPlus } from 'lucide-react';
 import { isSupabaseConfigured, checkSupabaseConnection } from '@/lib/supabase';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { SupabaseStatus } from '@/components/SupabaseStatus';
 
 const Index = () => {
+  const { user } = useAuth();
   const [connectionStatus, setConnectionStatus] = useState({
     checked: false,
     connected: false,
@@ -37,23 +40,8 @@ const Index = () => {
           </p>
         </div>
         
-        {connectionStatus.checked && !connectionStatus.connected && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Supabase Connection Error</AlertTitle>
-            <AlertDescription>
-              {connectionStatus.message}
-              <div className="mt-2">
-                <p>To set up your Supabase environment:</p>
-                <ol className="list-decimal list-inside mt-2 space-y-1">
-                  <li>Set the VITE_SUPABASE_URL environment variable to your Supabase project URL</li>
-                  <li>Set the VITE_SUPABASE_ANON_KEY environment variable to your Supabase anon/public key</li>
-                </ol>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
+        <SupabaseStatus showOnlyOnError={true} className="mb-6" />
+        
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
@@ -70,7 +58,11 @@ const Index = () => {
             </CardContent>
             <CardFooter>
               <Button asChild>
-                <Link to="/dashboard">Go to Dashboard</Link>
+                {!user ? (
+                  <Link to="/auth">Login to Dashboard</Link>
+                ) : (
+                  <Link to="/dashboard">Go to Dashboard</Link>
+                )}
               </Button>
             </CardFooter>
           </Card>
@@ -90,13 +82,34 @@ const Index = () => {
             </CardContent>
             <CardFooter>
               <Button asChild>
-                <Link to="/real-time-view">View Chargers</Link>
+                {!user ? (
+                  <Link to="/auth">Login to View</Link>
+                ) : (
+                  <Link to="/real-time">View Chargers</Link>
+                )}
               </Button>
             </CardFooter>
           </Card>
         </div>
 
-        {connectionStatus.checked && !isSupabaseConfigured && (
+        {!user && (
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+            <Button asChild className="flex items-center gap-2">
+              <Link to="/auth">
+                <LogIn className="h-4 w-4" />
+                <span>Login</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="flex items-center gap-2">
+              <Link to="/auth?tab=signup">
+                <UserPlus className="h-4 w-4" />
+                <span>Create Account</span>
+              </Link>
+            </Button>
+          </div>
+        )}
+
+        {connectionStatus.checked && connectionStatus.connected && !isSupabaseConfigured && (
           <div className="mt-8 text-center">
             <Button asChild variant="outline">
               <a 
