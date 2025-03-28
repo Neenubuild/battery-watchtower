@@ -18,9 +18,10 @@ import Layout from "@/components/Layout";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000, // 1 minute
+      staleTime: 30 * 1000, // 30 seconds
       refetchOnWindowFocus: true,
       retry: 1,
+      refetchInterval: 60 * 1000, // Poll every minute
     },
   },
 });

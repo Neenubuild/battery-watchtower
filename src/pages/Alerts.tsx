@@ -1,10 +1,19 @@
 
 import { useState } from "react";
-import { useBatteryData } from "@/hooks/useBatteryData";
+import { 
+  Card, 
+  CardContent,
+  CardDescription,
+  CardHeader, 
+  CardTitle
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Table, 
   TableBody, 
-  TableCaption, 
   TableCell, 
   TableHead, 
   TableHeader, 
@@ -17,418 +26,279 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { StatusIndicator } from "@/components/StatusIndicator";
-import { Bell, CheckCircle, Filter } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-
-// Alert types for the system
-type AlertType = 
-  | "high_string_voltage" 
-  | "low_string_voltage" 
-  | "high_string_current" 
-  | "high_cell_temperature"
-  | "low_cell_voltage"
-  | "high_cell_voltage"
-  | "high_ambient_temperature"
-  | "cell_communication_lost"
-  | "charger_fault"
-  | "ac_input_voltage_out_of_range"
-  | "high_dc_output_voltage"
-  | "high_output_current";
-
-type AlertSeverity = "warning" | "critical";
-
-interface Alert {
-  id: string;
-  timestamp: Date;
-  type: AlertType;
-  source: string;
-  message: string;
-  severity: AlertSeverity;
-  acknowledged: boolean;
-}
-
-// Generate sample alerts based on battery data
-const generateAlerts = (data: ReturnType<typeof useBatteryData>["data"]): Alert[] => {
-  if (!data) return [];
-  
-  const alerts: Alert[] = [];
-  
-  // Current time
-  const now = new Date();
-  
-  // Add string-level alerts
-  data.batteryBanks.forEach(bank => {
-    bank.strings.forEach(string => {
-      string.alerts.forEach((alertMessage, index) => {
-        // Determine alert type and severity based on message
-        let type: AlertType = "high_string_voltage";
-        let severity: AlertSeverity = "warning";
-        
-        if (alertMessage.includes("voltage critical") || alertMessage.includes("temperature critical")) {
-          severity = "critical";
-        }
-        
-        if (alertMessage.includes("voltage")) {
-          if (alertMessage.includes("high")) {
-            type = "high_string_voltage";
-          } else {
-            type = "low_string_voltage";
-          }
-        } else if (alertMessage.includes("current")) {
-          type = "high_string_current";
-        } else if (alertMessage.includes("temperature")) {
-          type = "high_cell_temperature";
-        } else if (alertMessage.includes("communication lost")) {
-          type = "cell_communication_lost";
-        }
-        
-        // Add alert with timestamp 0-60 minutes ago
-        const timestamp = new Date(now.getTime() - Math.floor(Math.random() * 60) * 60000);
-        
-        alerts.push({
-          id: `${string.id}-alert-${index}`,
-          timestamp,
-          type,
-          source: `${bank.name} - ${string.name}`,
-          message: alertMessage,
-          severity,
-          acknowledged: Math.random() > 0.7, // 30% chance of being acknowledged
-        });
-      });
-    });
-  });
-  
-  // Add charger alerts
-  data.chargers.forEach(charger => {
-    charger.alerts.forEach((alertMessage, index) => {
-      // Determine alert type and severity based on message
-      let type: AlertType = "charger_fault";
-      let severity: AlertSeverity = "warning";
-      
-      if (alertMessage.includes("fault")) {
-        severity = "critical";
-        type = "charger_fault";
-      } else if (alertMessage.includes("AC input")) {
-        type = "ac_input_voltage_out_of_range";
-      } else if (alertMessage.includes("DC output voltage")) {
-        type = "high_dc_output_voltage";
-      } else if (alertMessage.includes("output current")) {
-        type = "high_output_current";
-      }
-      
-      // Add alert with timestamp 0-60 minutes ago
-      const timestamp = new Date(now.getTime() - Math.floor(Math.random() * 60) * 60000);
-      
-      alerts.push({
-        id: `${charger.id}-alert-${index}`,
-        timestamp,
-        type,
-        source: charger.name,
-        message: alertMessage,
-        severity,
-        acknowledged: Math.random() > 0.7, // 30% chance of being acknowledged
-      });
-    });
-  });
-  
-  // Add some historical alerts (1-24 hours ago)
-  for (let i = 0; i < 5; i++) {
-    const hours = 1 + Math.floor(Math.random() * 23);
-    const timestamp = new Date(now.getTime() - hours * 3600000);
-    const bankIndex = Math.floor(Math.random() * data.batteryBanks.length);
-    const bank = data.batteryBanks[bankIndex];
-    const stringIndex = Math.floor(Math.random() * bank.strings.length);
-    const string = bank.strings[stringIndex];
-    
-    alerts.push({
-      id: `historical-alert-${i}`,
-      timestamp,
-      type: "high_ambient_temperature",
-      source: `${bank.name}`,
-      message: "High ambient temperature",
-      severity: "warning",
-      acknowledged: true,
-    });
-  }
-  
-  // Sort alerts by timestamp (newest first)
-  return alerts.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-};
-
-// Alert type descriptions
-const alertTypeDescriptions: Record<AlertType, string> = {
-  high_string_voltage: "High String Voltage",
-  low_string_voltage: "Low String Voltage",
-  high_string_current: "High String Current",
-  high_cell_temperature: "High Cell Temperature",
-  low_cell_voltage: "Low Cell Voltage",
-  high_cell_voltage: "High Cell Voltage",
-  high_ambient_temperature: "High Ambient Temperature",
-  cell_communication_lost: "Cell Communication Lost",
-  charger_fault: "Charger Fault",
-  ac_input_voltage_out_of_range: "AC Input Voltage Out of Range",
-  high_dc_output_voltage: "High DC Output Voltage",
-  high_output_current: "High Output Current",
-};
+import { AlertTriangle, CheckCircle, Clock, Bell, BellOff } from "lucide-react";
+import { useAlerts } from "@/hooks/useAlerts";
+import { format } from "date-fns";
 
 const Alerts = () => {
-  const { toast } = useToast();
-  const { data } = useBatteryData(10000); // Update every 10 seconds
+  const [activeTab, setActiveTab] = useState("active");
   const [filterSeverity, setFilterSeverity] = useState<string>("all");
-  const [filterAcknowledged, setFilterAcknowledged] = useState<string>("all");
-  const [selectedAlerts, setSelectedAlerts] = useState<Set<string>>(new Set());
+  const [filterSource, setFilterSource] = useState<string>("all");
+  const [selectedAlerts, setSelectedAlerts] = useState<string[]>([]);
   
-  // Generate alerts from battery data
-  const allAlerts = generateAlerts(data);
+  // Get active alerts
+  const { 
+    alerts: activeAlerts, 
+    loading: activeLoading, 
+    error: activeError,
+    acknowledgeAlerts,
+    refresh: refreshActive
+  } = useAlerts({ acknowledged: false }, true);
   
-  // Apply filters
-  const filteredAlerts = allAlerts.filter(alert => {
-    if (filterSeverity !== "all" && alert.severity !== filterSeverity) {
-      return false;
-    }
-    
-    if (filterAcknowledged === "acknowledged" && !alert.acknowledged) {
-      return false;
-    }
-    
-    if (filterAcknowledged === "unacknowledged" && alert.acknowledged) {
-      return false;
-    }
-    
-    return true;
-  });
+  // Get acknowledged alerts
+  const { 
+    alerts: acknowledgedAlerts, 
+    loading: acknowledgedLoading, 
+    error: acknowledgedError
+  } = useAlerts({ acknowledged: true });
   
-  const activeAlerts = allAlerts.filter(alert => !alert.acknowledged);
-  const historicalAlerts = allAlerts.filter(alert => alert.acknowledged);
+  // Filter alerts based on selected criteria
+  const filteredAlerts = (activeTab === "active" ? activeAlerts : acknowledgedAlerts)
+    .filter(alert => filterSeverity === "all" || alert.severity === filterSeverity)
+    .filter(alert => filterSource === "all" || alert.source_type === filterSource);
   
-  const toggleAlertSelection = (id: string) => {
-    const newSelection = new Set(selectedAlerts);
-    if (newSelection.has(id)) {
-      newSelection.delete(id);
+  // Handle selecting all alerts
+  const handleSelectAll = () => {
+    if (selectedAlerts.length === filteredAlerts.length) {
+      setSelectedAlerts([]);
     } else {
-      newSelection.add(id);
+      setSelectedAlerts(filteredAlerts.map(alert => alert.id));
     }
-    setSelectedAlerts(newSelection);
   };
   
-  const selectAllVisible = () => {
-    const visibleIds = filteredAlerts.map(alert => alert.id);
-    setSelectedAlerts(new Set(visibleIds));
+  // Handle acknowledging selected alerts
+  const handleAcknowledge = async () => {
+    if (selectedAlerts.length > 0) {
+      await acknowledgeAlerts(selectedAlerts);
+      setSelectedAlerts([]);
+      refreshActive();
+    }
   };
   
-  const clearSelection = () => {
-    setSelectedAlerts(new Set());
-  };
-  
-  const acknowledgeSelected = () => {
-    // In a real application, this would send a request to the server
-    toast({
-      title: "Alerts Acknowledged",
-      description: `${selectedAlerts.size} alert(s) have been acknowledged.`,
-    });
-    clearSelection();
-  };
-  
-  // Format timestamp to a readable format
-  const formatTimestamp = (timestamp: Date) => {
-    return timestamp.toLocaleString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
+  // Format alert source for display
+  const formatSource = (type: string, id: string) => {
+    switch (type) {
+      case 'cell':
+        return `Cell ${id}`;
+      case 'string':
+        return `String ${id}`;
+      case 'bank':
+        return `Battery Bank ${id}`;
+      case 'charger':
+        return `Charger ${id}`;
+      default:
+        return id;
+    }
   };
   
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Alerts</h1>
-        <div className="flex items-center space-x-2">
-          <Bell className="h-5 w-5 mr-1 text-scope-orange" />
-          <span className="font-medium">{activeAlerts.length} Active Alerts</span>
+        <h1 className="text-2xl font-bold tracking-tight">Alerts & Notifications</h1>
+        
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground">
+            {activeAlerts.length} active alerts
+          </span>
+          {activeAlerts.length > 0 && (
+            <AlertTriangle className="h-5 w-5 text-scope-warning" />
+          )}
         </div>
       </div>
       
-      <Tabs defaultValue="active">
-        <TabsList>
-          <TabsTrigger value="active">Active Alerts</TabsTrigger>
-          <TabsTrigger value="historical">Historical Alerts</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid grid-cols-2 w-[400px]">
+          <TabsTrigger value="active">
+            <Bell className="h-4 w-4 mr-2" />
+            Active Alerts
+          </TabsTrigger>
+          <TabsTrigger value="acknowledged">
+            <BellOff className="h-4 w-4 mr-2" />
+            Acknowledged
+          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="active" className="space-y-4">
-          <div className="flex justify-between items-center flex-wrap gap-4">
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={selectedAlerts.size === 0}
-                onClick={acknowledgeSelected}
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Acknowledge Selected
-              </Button>
-              
-              {selectedAlerts.size > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearSelection}
-                >
-                  Clear Selection ({selectedAlerts.size})
-                </Button>
-              )}
-            </div>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-6">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+            <Select value={filterSeverity} onValueChange={setFilterSeverity}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by severity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Severities</SelectItem>
+                <SelectItem value="warning">Warning</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+              </SelectContent>
+            </Select>
             
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              
-              <Select value={filterSeverity} onValueChange={setFilterSeverity}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Filter by severity" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Severities</SelectItem>
-                  <SelectItem value="warning">Warning</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={filterAcknowledged} onValueChange={setFilterAcknowledged}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="acknowledged">Acknowledged</SelectItem>
-                  <SelectItem value="unacknowledged">Unacknowledged</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={filterSource} onValueChange={setFilterSource}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                <SelectItem value="cell">Cells</SelectItem>
+                <SelectItem value="string">Strings</SelectItem>
+                <SelectItem value="bank">Battery Banks</SelectItem>
+                <SelectItem value="charger">Chargers</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px]">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4"
-                      checked={selectedAlerts.size > 0 && selectedAlerts.size === filteredAlerts.length}
-                      onChange={() => {
-                        if (selectedAlerts.size === filteredAlerts.length) {
-                          clearSelection();
-                        } else {
-                          selectAllVisible();
-                        }
-                      }}
-                    />
-                  </TableHead>
-                  <TableHead className="w-[180px]">Timestamp</TableHead>
-                  <TableHead className="w-[140px]">Severity</TableHead>
-                  <TableHead className="w-[150px]">Source</TableHead>
-                  <TableHead>Alert</TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAlerts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                      No alerts found matching your filters
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredAlerts.map((alert) => (
-                    <TableRow key={alert.id} className={alert.acknowledged ? "opacity-70" : ""}>
-                      <TableCell>
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4"
-                          checked={selectedAlerts.has(alert.id)}
-                          onChange={() => toggleAlertSelection(alert.id)}
-                        />
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {formatTimestamp(alert.timestamp)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <StatusIndicator 
-                            status={alert.severity === "critical" ? "critical" : "warning"} 
-                            className="mr-2"
+          {activeTab === "active" && (
+            <Button 
+              variant="outline"
+              onClick={handleAcknowledge}
+              disabled={selectedAlerts.length === 0}
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Acknowledge Selected
+            </Button>
+          )}
+        </div>
+        
+        <TabsContent value="active" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Active Alerts</CardTitle>
+              <CardDescription>
+                Alerts requiring attention and acknowledgment
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {activeLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="text-muted-foreground">Loading alerts...</div>
+                </div>
+              ) : activeError ? (
+                <div className="flex justify-center py-8 text-scope-danger">
+                  Error loading alerts. Please try again.
+                </div>
+              ) : filteredAlerts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                  <CheckCircle className="h-10 w-10 text-scope-success" />
+                  <div className="text-center">
+                    <h3 className="text-lg font-medium">All Clear</h3>
+                    <p className="text-muted-foreground">
+                      No active alerts matching your filter criteria
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[40px] text-center">
+                          <Checkbox 
+                            checked={selectedAlerts.length === filteredAlerts.length && filteredAlerts.length > 0}
+                            onCheckedChange={handleSelectAll}
                           />
-                          <span className="capitalize">{alert.severity}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{alert.source}</TableCell>
-                      <TableCell>{alert.message}</TableCell>
-                      <TableCell>
-                        {alert.acknowledged ? (
-                          <span className="text-muted-foreground">Acknowledged</span>
-                        ) : (
-                          <span className="text-scope-orange font-medium">Active</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                        </TableHead>
+                        <TableHead className="w-[120px]">Severity</TableHead>
+                        <TableHead className="w-[150px]">Time</TableHead>
+                        <TableHead className="w-[150px]">Source</TableHead>
+                        <TableHead>Message</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAlerts.map((alert) => (
+                        <TableRow key={alert.id}>
+                          <TableCell className="text-center">
+                            <Checkbox 
+                              checked={selectedAlerts.includes(alert.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedAlerts([...selectedAlerts, alert.id]);
+                                } else {
+                                  setSelectedAlerts(selectedAlerts.filter(id => id !== alert.id));
+                                }
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={alert.severity === 'critical' ? 'destructive' : 'warning'}>
+                              {alert.severity === 'critical' ? 'Critical' : 'Warning'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {format(new Date(alert.created_at), 'MMM dd, HH:mm')}
+                          </TableCell>
+                          <TableCell>
+                            {formatSource(alert.source_type, alert.source_id)}
+                          </TableCell>
+                          <TableCell>{alert.message}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
         
-        <TabsContent value="historical" className="space-y-4">
-          <div className="rounded-md border">
-            <Table>
-              <TableCaption>Historical alerts from the past 24 hours</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[180px]">Timestamp</TableHead>
-                  <TableHead className="w-[140px]">Severity</TableHead>
-                  <TableHead className="w-[150px]">Source</TableHead>
-                  <TableHead>Alert</TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {historicalAlerts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                      No historical alerts in the past 24 hours
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  historicalAlerts.map((alert) => (
-                    <TableRow key={alert.id} className="opacity-70">
-                      <TableCell className="font-mono text-xs">
-                        {formatTimestamp(alert.timestamp)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <StatusIndicator 
-                            status={alert.severity === "critical" ? "critical" : "warning"} 
-                            className="mr-2"
-                          />
-                          <span className="capitalize">{alert.severity}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{alert.source}</TableCell>
-                      <TableCell>{alert.message}</TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground">Acknowledged</span>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+        <TabsContent value="acknowledged" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Acknowledged Alerts</CardTitle>
+              <CardDescription>
+                Historical record of acknowledged alerts
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {acknowledgedLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="text-muted-foreground">Loading alerts...</div>
+                </div>
+              ) : acknowledgedError ? (
+                <div className="flex justify-center py-8 text-scope-danger">
+                  Error loading alerts. Please try again.
+                </div>
+              ) : filteredAlerts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                  <Clock className="h-10 w-10 text-muted-foreground" />
+                  <div className="text-center">
+                    <h3 className="text-lg font-medium">No History</h3>
+                    <p className="text-muted-foreground">
+                      No acknowledged alerts matching your filter criteria
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[120px]">Severity</TableHead>
+                        <TableHead className="w-[150px]">Time</TableHead>
+                        <TableHead className="w-[150px]">Source</TableHead>
+                        <TableHead>Message</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAlerts.map((alert) => (
+                        <TableRow key={alert.id}>
+                          <TableCell>
+                            <Badge variant={alert.severity === 'critical' ? 'destructive' : 'warning'}>
+                              {alert.severity === 'critical' ? 'Critical' : 'Warning'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {format(new Date(alert.created_at), 'MMM dd, HH:mm')}
+                          </TableCell>
+                          <TableCell>
+                            {formatSource(alert.source_type, alert.source_id)}
+                          </TableCell>
+                          <TableCell>{alert.message}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

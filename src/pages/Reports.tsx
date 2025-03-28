@@ -4,7 +4,6 @@ import {
   Card, 
   CardContent, 
   CardDescription, 
-  CardFooter, 
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -29,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Download, BarChart3, FileText } from "lucide-react";
+import { Calendar as CalendarIcon, Download, BarChart3, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useForm } from "react-hook-form";
@@ -45,6 +44,29 @@ import {
   Legend,
   ResponsiveContainer
 } from "recharts";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { fetchBatteryBanks } from "@/services/batteryService";
+import { generateExcelReport } from "@/services/reportService";
+
+// Schema for historical report form
+const historicalReportSchema = z.object({
+  batteryBank: z.string().min(1, "Please select a battery bank"),
+  dataType: z.string().min(1, "Please select a data type"),
+  startDate: z.date(),
+  endDate: z.date(),
+});
+
+// Schema for daily report form
+const dailyReportSchema = z.object({
+  date: z.date(),
+  batteryBank: z.string().min(1, "Please select a battery bank"),
+});
+
+// Schema for monthly report form
+const monthlyReportSchema = z.object({
+  month: z.date(),
+  batteryBank: z.string().min(1, "Please select a battery bank"),
+});
 
 // Sample data for charts
 const generateSampleData = (days: number) => {
@@ -100,31 +122,36 @@ const generateMonthlyData = (months: number) => {
   return data;
 };
 
-// Schema for historical report form
-const historicalReportSchema = z.object({
-  batteryBank: z.string().min(1, "Please select a battery bank"),
-  dataType: z.string().min(1, "Please select a data type"),
-  startDate: z.date(),
-  endDate: z.date(),
-});
-
-// Schema for daily report form
-const dailyReportSchema = z.object({
-  date: z.date(),
-  batteryBank: z.string().min(1, "Please select a battery bank"),
-});
-
-// Schema for monthly report form
-const monthlyReportSchema = z.object({
-  month: z.date(),
-  batteryBank: z.string().min(1, "Please select a battery bank"),
-});
-
 const Reports = () => {
   const { toast } = useToast();
   const [activeReportType, setActiveReportType] = useState<string>("historical");
   const [dailyData] = useState(generateSampleData(30));
   const [monthlyData] = useState(generateMonthlyData(12));
+  
+  // Fetch battery banks for dropdown
+  const bankQuery = useQuery({
+    queryKey: ['batteryBanks'],
+    queryFn: fetchBatteryBanks
+  });
+  
+  // Mutation for generating reports
+  const reportMutation = useMutation({
+    mutationFn: (params: { reportType: 'historical' | 'daily' | 'monthly', data: any }) => 
+      generateExcelReport(params.reportType, params.data),
+    onSuccess: (fileName) => {
+      toast({
+        title: "Report Generated",
+        description: `${fileName} has been downloaded.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate report. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
   
   // Historical report form
   const historicalReportForm = useForm<z.infer<typeof historicalReportSchema>>({
@@ -156,34 +183,34 @@ const Reports = () => {
   });
   
   const onHistoricalReportSubmit = (values: z.infer<typeof historicalReportSchema>) => {
-    console.log("Historical report values:", values);
-    toast({
-      title: "Generating Historical Report",
-      description: "Your report is being generated and will be ready for download shortly.",
+    reportMutation.mutate({
+      reportType: 'historical',
+      data: {
+        batteryBank: values.batteryBank,
+        dataType: values.dataType,
+        startDate: values.startDate.toISOString(),
+        endDate: values.endDate.toISOString()
+      }
     });
-    // In a real app, this would trigger an API call to generate the report
   };
   
   const onDailyReportSubmit = (values: z.infer<typeof dailyReportSchema>) => {
-    console.log("Daily report values:", values);
-    toast({
-      title: "Generating Daily Report",
-      description: "Your report is being generated and will be ready for download shortly.",
+    reportMutation.mutate({
+      reportType: 'daily',
+      data: {
+        batteryBank: values.batteryBank,
+        date: values.date.toISOString()
+      }
     });
   };
   
   const onMonthlyReportSubmit = (values: z.infer<typeof monthlyReportSchema>) => {
-    console.log("Monthly report values:", values);
-    toast({
-      title: "Generating Monthly Report",
-      description: "Your report is being generated and will be ready for download shortly.",
-    });
-  };
-  
-  const downloadReport = (reportType: string) => {
-    toast({
-      title: "Download Started",
-      description: `Your ${reportType} report is being downloaded.`,
+    reportMutation.mutate({
+      reportType: 'monthly',
+      data: {
+        batteryBank: values.batteryBank,
+        month: values.month.toISOString()
+      }
     });
   };
   
@@ -234,10 +261,20 @@ const Reports = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="bank1">Battery Bank 1</SelectItem>
-                              <SelectItem value="bank2">Battery Bank 2</SelectItem>
-                              <SelectItem value="bank3">Battery Bank 3</SelectItem>
-                              <SelectItem value="all">All Battery Banks</SelectItem>
+                              {bankQuery.isLoading ? (
+                                <SelectItem value="loading" disabled>Loading banks...</SelectItem>
+                              ) : bankQuery.error ? (
+                                <SelectItem value="error" disabled>Error loading banks</SelectItem>
+                              ) : (
+                                <>
+                                  <SelectItem value="all">All Battery Banks</SelectItem>
+                                  {bankQuery.data?.map(bank => (
+                                    <SelectItem key={bank.id} value={bank.id}>
+                                      {bank.name} ({bank.location})
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -356,10 +393,18 @@ const Reports = () => {
                   </div>
                   
                   <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
-                    <Button type="submit">Generate Report</Button>
-                    <Button type="button" variant="outline" onClick={() => downloadReport("historical")}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Excel
+                    <Button 
+                      type="submit" 
+                      disabled={reportMutation.isPending}
+                    >
+                      {reportMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        "Generate Report"
+                      )}
                     </Button>
                   </div>
                 </form>
@@ -481,10 +526,20 @@ const Reports = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="bank1">Battery Bank 1</SelectItem>
-                              <SelectItem value="bank2">Battery Bank 2</SelectItem>
-                              <SelectItem value="bank3">Battery Bank 3</SelectItem>
-                              <SelectItem value="all">All Battery Banks</SelectItem>
+                              {bankQuery.isLoading ? (
+                                <SelectItem value="loading" disabled>Loading banks...</SelectItem>
+                              ) : bankQuery.error ? (
+                                <SelectItem value="error" disabled>Error loading banks</SelectItem>
+                              ) : (
+                                <>
+                                  <SelectItem value="all">All Battery Banks</SelectItem>
+                                  {bankQuery.data?.map(bank => (
+                                    <SelectItem key={bank.id} value={bank.id}>
+                                      {bank.name} ({bank.location})
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -494,10 +549,18 @@ const Reports = () => {
                   </div>
                   
                   <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
-                    <Button type="submit">Generate Report</Button>
-                    <Button type="button" variant="outline" onClick={() => downloadReport("daily")}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Excel
+                    <Button 
+                      type="submit" 
+                      disabled={reportMutation.isPending}
+                    >
+                      {reportMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        "Generate Report"
+                      )}
                     </Button>
                   </div>
                 </form>
@@ -622,10 +685,20 @@ const Reports = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="bank1">Battery Bank 1</SelectItem>
-                              <SelectItem value="bank2">Battery Bank 2</SelectItem>
-                              <SelectItem value="bank3">Battery Bank 3</SelectItem>
-                              <SelectItem value="all">All Battery Banks</SelectItem>
+                              {bankQuery.isLoading ? (
+                                <SelectItem value="loading" disabled>Loading banks...</SelectItem>
+                              ) : bankQuery.error ? (
+                                <SelectItem value="error" disabled>Error loading banks</SelectItem>
+                              ) : (
+                                <>
+                                  <SelectItem value="all">All Battery Banks</SelectItem>
+                                  {bankQuery.data?.map(bank => (
+                                    <SelectItem key={bank.id} value={bank.id}>
+                                      {bank.name} ({bank.location})
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -635,10 +708,18 @@ const Reports = () => {
                   </div>
                   
                   <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
-                    <Button type="submit">Generate Report</Button>
-                    <Button type="button" variant="outline" onClick={() => downloadReport("monthly")}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Excel
+                    <Button 
+                      type="submit" 
+                      disabled={reportMutation.isPending}
+                    >
+                      {reportMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        "Generate Report"
+                      )}
                     </Button>
                   </div>
                 </form>

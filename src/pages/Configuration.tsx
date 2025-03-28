@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useBatteryData } from "@/hooks/useBatteryData";
+
+import { useState, useEffect } from "react";
 import { 
   Card, 
   CardContent, 
@@ -9,699 +9,683 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
   Form,
   FormControl,
   FormDescription,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage
+  FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import * as z from "zod";
 import { Settings, Bell, Smartphone, Wifi } from "lucide-react";
+import { fetchSystemConfig, updateSystemConfig } from "@/services/batteryService";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Define the schema for system settings form
 const systemSettingsSchema = z.object({
-  dataRefreshRate: z.string().min(1, "Refresh rate is required"),
-  smsAlertEnabled: z.boolean().default(true),
-  emailAlertEnabled: z.boolean().default(true),
-  buzzerEnabled: z.boolean().default(true),
-  timeZone: z.string().min(1, "Time zone is required"),
-  dataRetentionDays: z.string().min(1, "Data retention period is required"),
+  dataRefreshRate: z.coerce.number().min(30).max(3600),
+  cellVoltageMin: z.coerce.number().min(1.5).max(2.5),
+  cellVoltageMax: z.coerce.number().min(2.0).max(3.0),
+  cellTempMax: z.coerce.number().min(20).max(60),
+  stringVoltageMin: z.coerce.number().min(40).max(55),
+  stringVoltageMax: z.coerce.number().min(45).max(60),
+  currentMax: z.coerce.number().min(10).max(100)
 });
 
-// Define the schema for alert thresholds
-const alertThresholdsSchema = z.object({
-  highStringVoltage: z.string().min(1, "Threshold is required"),
-  lowStringVoltage: z.string().min(1, "Threshold is required"),
-  highStringCurrent: z.string().min(1, "Threshold is required"),
-  highCellTemperature: z.string().min(1, "Threshold is required"),
-  lowCellVoltage: z.string().min(1, "Threshold is required"),
-  highCellVoltage: z.string().min(1, "Threshold is required"),
-  highAmbientTemperature: z.string().min(1, "Threshold is required"),
+// Define schema for notification settings
+const notificationSettingsSchema = z.object({
+  emailEnabled: z.boolean(),
+  smsEnabled: z.boolean(),
+  notificationEmails: z.string().optional(),
+  notificationPhones: z.string().optional(),
+  alertsWarning: z.boolean(),
+  alertsCritical: z.boolean(),
+  alertsOffline: z.boolean()
 });
 
-// Define the schema for communication settings
+// Define schema for communication settings
 const communicationSettingsSchema = z.object({
-  ipAddress: z.string().min(1, "IP address is required"),
-  port: z.string().min(1, "Port is required"),
-  apn: z.string().min(1, "APN is required"),
-  username: z.string().optional(),
-  password: z.string().optional(),
-  serverUrl: z.string().url("Please enter a valid URL"),
-  uploadInterval: z.string().min(1, "Upload interval is required"),
-});
-
-// Define the schema for SMS alert settings
-const smsAlertSettingsSchema = z.object({
-  phone1: z.string().min(10, "Phone number must be at least 10 digits"),
-  phone2: z.string().optional(),
-  phone3: z.string().optional(),
-  phone4: z.string().optional(),
-  phone5: z.string().optional(),
+  communicationMode: z.enum(["gprs", "ethernet", "both"]),
+  apn: z.string().optional(),
+  serverAddress: z.string().url(),
+  serverPort: z.coerce.number().min(1).max(65535),
+  transmissionInterval: z.coerce.number().min(180).max(86400)
 });
 
 const Configuration = () => {
   const { toast } = useToast();
-  const { data } = useBatteryData();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("system");
   
-  // System settings form
-  const systemSettingsForm = useForm<z.infer<typeof systemSettingsSchema>>({
-    resolver: zodResolver(systemSettingsSchema),
-    defaultValues: {
-      dataRefreshRate: "10",
-      smsAlertEnabled: true,
-      emailAlertEnabled: true,
-      buzzerEnabled: true,
-      timeZone: "UTC+05:30",
-      dataRetentionDays: "90",
-    },
+  // Fetch system configuration from backend
+  const configQuery = useQuery({
+    queryKey: ['systemConfig'],
+    queryFn: fetchSystemConfig
   });
   
-  // Alert thresholds form
-  const alertThresholdsForm = useForm<z.infer<typeof alertThresholdsSchema>>({
-    resolver: zodResolver(alertThresholdsSchema),
+  // System settings form
+  const systemForm = useForm<z.infer<typeof systemSettingsSchema>>({
+    resolver: zodResolver(systemSettingsSchema),
     defaultValues: {
-      highStringVoltage: "52.5",
-      lowStringVoltage: "44.0",
-      highStringCurrent: "30.0",
-      highCellTemperature: "35.0",
-      lowCellVoltage: "1.95",
-      highCellVoltage: "2.25",
-      highAmbientTemperature: "40.0",
-    },
+      dataRefreshRate: 60,
+      cellVoltageMin: 1.95,
+      cellVoltageMax: 2.25,
+      cellTempMax: 35,
+      stringVoltageMin: 48,
+      stringVoltageMax: 54,
+      currentMax: 30
+    }
+  });
+  
+  // Notification settings form
+  const notificationForm = useForm<z.infer<typeof notificationSettingsSchema>>({
+    resolver: zodResolver(notificationSettingsSchema),
+    defaultValues: {
+      emailEnabled: true,
+      smsEnabled: true,
+      notificationEmails: "",
+      notificationPhones: "",
+      alertsWarning: true,
+      alertsCritical: true,
+      alertsOffline: true
+    }
   });
   
   // Communication settings form
-  const communicationSettingsForm = useForm<z.infer<typeof communicationSettingsSchema>>({
+  const communicationForm = useForm<z.infer<typeof communicationSettingsSchema>>({
     resolver: zodResolver(communicationSettingsSchema),
     defaultValues: {
-      ipAddress: "192.168.1.100",
-      port: "8080",
+      communicationMode: "gprs",
       apn: "internet",
-      username: "",
-      password: "",
-      serverUrl: "https://cloud.scope.com/api/data",
-      uploadInterval: "300",
-    },
+      serverAddress: "https://bms.example.com",
+      serverPort: 443,
+      transmissionInterval: 300
+    }
   });
   
-  // SMS alert settings form
-  const smsAlertSettingsForm = useForm<z.infer<typeof smsAlertSettingsSchema>>({
-    resolver: zodResolver(smsAlertSettingsSchema),
-    defaultValues: {
-      phone1: "9876543210",
-      phone2: "",
-      phone3: "",
-      phone4: "",
-      phone5: "",
+  // Update forms with data from backend when available
+  useEffect(() => {
+    if (configQuery.data) {
+      const config = configQuery.data;
+      
+      // Update system settings form
+      systemForm.reset({
+        dataRefreshRate: config.data_refresh_rate,
+        cellVoltageMin: config.cell_voltage_min,
+        cellVoltageMax: config.cell_voltage_max,
+        cellTempMax: config.cell_temp_max,
+        stringVoltageMin: config.string_voltage_min,
+        stringVoltageMax: config.string_voltage_max,
+        currentMax: config.string_current_max
+      });
+      
+      // Update notification settings form
+      const emails = config.notification_emails?.join(', ') || '';
+      const phones = config.notification_sms?.join(', ') || '';
+      
+      notificationForm.reset({
+        emailEnabled: emails.length > 0,
+        smsEnabled: phones.length > 0,
+        notificationEmails: emails,
+        notificationPhones: phones,
+        alertsWarning: true,
+        alertsCritical: true,
+        alertsOffline: true
+      });
+    }
+  }, [configQuery.data, systemForm, notificationForm]);
+  
+  // Handle system settings form submission
+  const systemSettingsMutation = useMutation({
+    mutationFn: (data: z.infer<typeof systemSettingsSchema>) => {
+      return updateSystemConfig({
+        id: configQuery.data?.id,
+        data_refresh_rate: data.dataRefreshRate,
+        cell_voltage_min: data.cellVoltageMin,
+        cell_voltage_max: data.cellVoltageMax,
+        cell_temp_max: data.cellTempMax,
+        string_voltage_min: data.stringVoltageMin,
+        string_voltage_max: data.stringVoltageMax,
+        string_current_max: data.currentMax
+      });
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+      toast({
+        title: "Settings Saved",
+        description: "System settings have been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to save system settings.",
+        variant: "destructive",
+      });
+    }
   });
   
-  const onSystemSettingSubmit = (values: z.infer<typeof systemSettingsSchema>) => {
-    console.log("System settings:", values);
-    toast({
-      title: "Settings Saved",
-      description: "System settings have been updated successfully.",
-    });
+  const onSystemSubmit = (data: z.infer<typeof systemSettingsSchema>) => {
+    systemSettingsMutation.mutate(data);
   };
   
-  const onAlertThresholdsSubmit = (values: z.infer<typeof alertThresholdsSchema>) => {
-    console.log("Alert thresholds:", values);
-    toast({
-      title: "Thresholds Saved",
-      description: "Alert thresholds have been updated successfully.",
-    });
+  // Handle notification settings form submission
+  const notificationSettingsMutation = useMutation({
+    mutationFn: (data: z.infer<typeof notificationSettingsSchema>) => {
+      // Parse email and phone lists
+      const emailList = data.emailEnabled && data.notificationEmails ? 
+        data.notificationEmails.split(',').map(e => e.trim()).filter(e => e) : 
+        [];
+      
+      const phoneList = data.smsEnabled && data.notificationPhones ? 
+        data.notificationPhones.split(',').map(p => p.trim()).filter(p => p) : 
+        [];
+      
+      return updateSystemConfig({
+        id: configQuery.data?.id,
+        notification_emails: emailList,
+        notification_sms: phoneList
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+      toast({
+        title: "Settings Saved",
+        description: "Notification settings have been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to save notification settings.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const onNotificationSubmit = (data: z.infer<typeof notificationSettingsSchema>) => {
+    notificationSettingsMutation.mutate(data);
   };
   
-  const onCommunicationSettingsSubmit = (values: z.infer<typeof communicationSettingsSchema>) => {
-    console.log("Communication settings:", values);
+  // Handle communication settings form submission
+  const onCommunicationSubmit = (data: z.infer<typeof communicationSettingsSchema>) => {
+    console.log("Communication settings:", data);
     toast({
       title: "Settings Saved",
       description: "Communication settings have been updated successfully.",
     });
   };
   
-  const onSmsAlertSettingsSubmit = (values: z.infer<typeof smsAlertSettingsSchema>) => {
-    console.log("SMS alert settings:", values);
-    toast({
-      title: "Settings Saved",
-      description: "SMS alert contacts have been updated successfully.",
-    });
-  };
-  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Configuration</h1>
+        <h1 className="text-2xl font-bold tracking-tight">System Configuration</h1>
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-2 md:grid-cols-4">
+        <TabsList className="grid grid-cols-3">
           <TabsTrigger value="system">
             <Settings className="h-4 w-4 mr-2" />
-            System
+            System Settings
           </TabsTrigger>
-          <TabsTrigger value="alert">
+          <TabsTrigger value="notification">
             <Bell className="h-4 w-4 mr-2" />
-            Alerts
+            Notifications
           </TabsTrigger>
           <TabsTrigger value="communication">
             <Wifi className="h-4 w-4 mr-2" />
             Communication
           </TabsTrigger>
-          <TabsTrigger value="sms">
-            <Smartphone className="h-4 w-4 mr-2" />
-            SMS Contacts
-          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="system" className="space-y-6 mt-6">
+        <TabsContent value="system" className="space-y-4 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>System Settings</CardTitle>
+              <CardTitle>System Parameters</CardTitle>
               <CardDescription>
-                Configure general system settings and preferences
+                Configure threshold values and system behavior
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Form {...systemSettingsForm}>
-                <form onSubmit={systemSettingsForm.handleSubmit(onSystemSettingSubmit)} className="space-y-6">
-                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                    <FormField
-                      control={systemSettingsForm.control}
-                      name="dataRefreshRate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Data Refresh Rate (seconds)</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="number" min="1" max="3600" />
-                          </FormControl>
-                          <FormDescription>
-                            How often to refresh the data display
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={systemSettingsForm.control}
-                      name="timeZone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Time Zone</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select time zone" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="UTC+00:00">UTC+00:00</SelectItem>
-                              <SelectItem value="UTC+05:30">UTC+05:30 (IST)</SelectItem>
-                              <SelectItem value="UTC+05:45">UTC+05:45 (NPT)</SelectItem>
-                              <SelectItem value="UTC+06:00">UTC+06:00 (BST)</SelectItem>
-                              <SelectItem value="UTC+06:30">UTC+06:30 (MMT)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={systemSettingsForm.control}
-                      name="dataRetentionDays"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Data Retention Period (days)</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="number" min="1" max="3650" />
-                          </FormControl>
-                          <FormDescription>
-                            How long to keep historical data
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <Separator className="my-4" />
-                  
+              <Form {...systemForm}>
+                <form onSubmit={systemForm.handleSubmit(onSystemSubmit)} className="space-y-6">
                   <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Notifications</h3>
-                    
-                    <FormField
-                      control={systemSettingsForm.control}
-                      name="smsAlertEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <FormLabel>SMS Alerts</FormLabel>
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+                      <FormField
+                        control={systemForm.control}
+                        name="dataRefreshRate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data Refresh Rate (seconds)</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
                             <FormDescription>
-                              Enable SMS alerts for critical events
+                              How often data is refreshed in the interface
                             </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     
-                    <FormField
-                      control={systemSettingsForm.control}
-                      name="emailAlertEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <FormLabel>Email Alerts</FormLabel>
-                            <FormDescription>
-                              Enable email alerts for critical events
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                    <div>
+                      <h3 className="text-md font-medium mb-3">Cell Parameters</h3>
+                      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+                        <FormField
+                          control={systemForm.control}
+                          name="cellVoltageMin"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Min Cell Voltage (V)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={systemForm.control}
+                          name="cellVoltageMax"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Max Cell Voltage (V)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={systemForm.control}
+                          name="cellTempMax"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Max Cell Temperature (°C)</FormLabel>
+                              <FormControl>
+                                <Input type="number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
                     
-                    <FormField
-                      control={systemSettingsForm.control}
-                      name="buzzerEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <FormLabel>Local Buzzer</FormLabel>
-                            <FormDescription>
-                              Enable on-site audible alerts
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                    <div>
+                      <h3 className="text-md font-medium mb-3">String Parameters</h3>
+                      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+                        <FormField
+                          control={systemForm.control}
+                          name="stringVoltageMin"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Min String Voltage (V)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={systemForm.control}
+                          name="stringVoltageMax"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Max String Voltage (V)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={systemForm.control}
+                          name="currentMax"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Max Current (A)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
                   </div>
                   
-                  <Button type="submit">Save System Settings</Button>
+                  <Button type="submit" disabled={systemSettingsMutation.isPending}>
+                    {systemSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+                  </Button>
                 </form>
               </Form>
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="alert" className="space-y-6 mt-6">
+        <TabsContent value="notification" className="space-y-4 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Alert Thresholds</CardTitle>
+              <CardTitle>Notification Settings</CardTitle>
               <CardDescription>
-                Configure thresholds for various system alerts
+                Configure how you want to receive alerts and notifications
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Form {...alertThresholdsForm}>
-                <form onSubmit={alertThresholdsForm.handleSubmit(onAlertThresholdsSubmit)} className="space-y-6">
+              <Form {...notificationForm}>
+                <form onSubmit={notificationForm.handleSubmit(onNotificationSubmit)} className="space-y-6">
                   <div className="space-y-4">
-                    <h3 className="text-lg font-medium">String Level Alerts</h3>
-                    <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-                      <FormField
-                        control={alertThresholdsForm.control}
-                        name="highStringVoltage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>High String Voltage (V)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.1" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
+                    <div>
+                      <h3 className="text-md font-medium mb-3">Notification Methods</h3>
+                      <div className="space-y-4">
+                        <div className="flex flex-col space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <FormField
+                                control={notificationForm.control}
+                                name="emailEnabled"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                      <FormLabel className="text-base">
+                                        Email Notifications
+                                      </FormLabel>
+                                      <FormDescription>
+                                        Receive alert notifications via email
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {notificationForm.watch("emailEnabled") && (
+                          <FormField
+                            control={notificationForm.control}
+                            name="notificationEmails"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email Addresses</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="email1@example.com, email2@example.com" {...field} />
+                                </FormControl>
+                                <FormDescription>
+                                  Comma-separated list of email addresses
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         )}
-                      />
-                      
-                      <FormField
-                        control={alertThresholdsForm.control}
-                        name="lowStringVoltage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Low String Voltage (V)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.1" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
+                        
+                        <FormField
+                          control={notificationForm.control}
+                          name="smsEnabled"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">
+                                  SMS Notifications
+                                </FormLabel>
+                                <FormDescription>
+                                  Receive alert notifications via SMS
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        {notificationForm.watch("smsEnabled") && (
+                          <FormField
+                            control={notificationForm.control}
+                            name="notificationPhones"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Phone Numbers</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="+1234567890, +0987654321" {...field} />
+                                </FormControl>
+                                <FormDescription>
+                                  Comma-separated list of phone numbers with country code
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         )}
-                      />
-                      
-                      <FormField
-                        control={alertThresholdsForm.control}
-                        name="highStringCurrent"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>High String Current (A)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.1" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-md font-medium mb-3">Alert Types</h3>
+                      <div className="space-y-2">
+                        <FormField
+                          control={notificationForm.control}
+                          name="alertsWarning"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                              <div className="space-y-0.5">
+                                <FormLabel>Warning Alerts</FormLabel>
+                                <FormDescription>
+                                  Parameters outside normal range
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={notificationForm.control}
+                          name="alertsCritical"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                              <div className="space-y-0.5">
+                                <FormLabel>Critical Alerts</FormLabel>
+                                <FormDescription>
+                                  Serious conditions requiring immediate attention
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={notificationForm.control}
+                          name="alertsOffline"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                              <div className="space-y-0.5">
+                                <FormLabel>Offline Alerts</FormLabel>
+                                <FormDescription>
+                                  When devices go offline or lose communication
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
                   </div>
                   
-                  <Separator className="my-4" />
-                  
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Cell Level Alerts</h3>
-                    <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-                      <FormField
-                        control={alertThresholdsForm.control}
-                        name="highCellVoltage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>High Cell Voltage (V)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.01" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={alertThresholdsForm.control}
-                        name="lowCellVoltage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Low Cell Voltage (V)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.01" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={alertThresholdsForm.control}
-                        name="highCellTemperature"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>High Cell Temperature (°C)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.1" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                  
-                  <Separator className="my-4" />
-                  
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Environment Alerts</h3>
-                    <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-                      <FormField
-                        control={alertThresholdsForm.control}
-                        name="highAmbientTemperature"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>High Ambient Temperature (°C)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.1" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                  
-                  <Button type="submit">Save Alert Thresholds</Button>
+                  <Button type="submit" disabled={notificationSettingsMutation.isPending}>
+                    {notificationSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+                  </Button>
                 </form>
               </Form>
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="communication" className="space-y-6 mt-6">
+        <TabsContent value="communication" className="space-y-4 mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Communication Settings</CardTitle>
               <CardDescription>
-                Configure network and data transmission settings
+                Configure how the remote devices communicate with the server
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Form {...communicationSettingsForm}>
-                <form onSubmit={communicationSettingsForm.handleSubmit(onCommunicationSettingsSubmit)} className="space-y-6">
+              <Form {...communicationForm}>
+                <form onSubmit={communicationForm.handleSubmit(onCommunicationSubmit)} className="space-y-6">
                   <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Network Configuration</h3>
-                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                      <FormField
-                        control={communicationSettingsForm.control}
-                        name="ipAddress"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>IP Address</FormLabel>
+                    <FormField
+                      control={communicationForm.control}
+                      name="communicationMode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Communication Mode</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <Input {...field} />
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select communication mode" />
+                              </SelectTrigger>
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
+                            <SelectContent>
+                              <SelectItem value="gprs">GPRS/GSM</SelectItem>
+                              <SelectItem value="ethernet">Ethernet</SelectItem>
+                              <SelectItem value="both">Dual Mode (GPRS + Ethernet)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            How devices will connect to the server
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {(communicationForm.watch("communicationMode") === "gprs" || 
+                     communicationForm.watch("communicationMode") === "both") && (
                       <FormField
-                        control={communicationSettingsForm.control}
-                        name="port"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Port</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" min="1" max="65535" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                  
-                  <Separator className="my-4" />
-                  
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">GSM/GPRS Configuration</h3>
-                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                      <FormField
-                        control={communicationSettingsForm.control}
+                        control={communicationForm.control}
                         name="apn"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>APN</FormLabel>
+                            <FormLabel>APN Settings</FormLabel>
                             <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={communicationSettingsForm.control}
-                        name="username"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Username (Optional)</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={communicationSettingsForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password (Optional)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="password" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                  
-                  <Separator className="my-4" />
-                  
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Data Transmission</h3>
-                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                      <FormField
-                        control={communicationSettingsForm.control}
-                        name="serverUrl"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Server URL</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={communicationSettingsForm.control}
-                        name="uploadInterval"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Upload Interval (seconds)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" min="180" max="86400" />
+                              <Input placeholder="internet" {...field} />
                             </FormControl>
                             <FormDescription>
-                              Minimum 180s, Maximum 86400s (24 hours)
+                              Access Point Name for mobile data connection
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+                    )}
+                    
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+                      <FormField
+                        control={communicationForm.control}
+                        name="serverAddress"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Server Address</FormLabel>
+                            <FormControl>
+                              <Input placeholder="https://bms.example.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={communicationForm.control}
+                        name="serverPort"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Server Port</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
-                  </div>
-                  
-                  <Button type="submit">Save Communication Settings</Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="sms" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>SMS Alert Contacts</CardTitle>
-              <CardDescription>
-                Configure mobile numbers for SMS alerts
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...smsAlertSettingsForm}>
-                <form onSubmit={smsAlertSettingsForm.handleSubmit(onSmsAlertSettingsSubmit)} className="space-y-6">
-                  <div className="space-y-4">
-                    <FormField
-                      control={smsAlertSettingsForm.control}
-                      name="phone1"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Primary Contact (Required)</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Enter mobile number" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
                     
                     <FormField
-                      control={smsAlertSettingsForm.control}
-                      name="phone2"
+                      control={communicationForm.control}
+                      name="transmissionInterval"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Contact 2</FormLabel>
+                          <FormLabel>Data Transmission Interval (seconds)</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Enter mobile number (optional)" />
+                            <Input type="number" {...field} />
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={smsAlertSettingsForm.control}
-                      name="phone3"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contact 3</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Enter mobile number (optional)" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={smsAlertSettingsForm.control}
-                      name="phone4"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contact 4</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Enter mobile number (optional)" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={smsAlertSettingsForm.control}
-                      name="phone5"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contact 5</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Enter mobile number (optional)" />
-                          </FormControl>
+                          <FormDescription>
+                            How frequently devices should send data to the server (180s minimum)
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
                   
-                  <Button type="submit">Save SMS Contacts</Button>
+                  <Button type="submit">Save Settings</Button>
                 </form>
               </Form>
             </CardContent>
-            <CardFooter className="flex flex-col items-start">
-              <p className="text-sm text-muted-foreground">
-                SMS alerts will be sent to these contacts when critical thresholds are breached.
-              </p>
-            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
