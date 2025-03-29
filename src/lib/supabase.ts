@@ -34,3 +34,30 @@ export const checkSupabaseConnection = async () => {
     };
   }
 };
+
+// Helper function to execute a SQL alteration to add missing columns
+export const updateBatteryStringsSchema = async () => {
+  try {
+    // Check if state_of_charge column exists
+    const { data, error } = await supabase.rpc('alter_battery_strings_table_if_needed');
+    
+    if (error) {
+      console.error("Error updating battery_strings schema:", error.message);
+      return {
+        success: false,
+        message: `Failed to update schema: ${error.message}`
+      };
+    }
+    
+    return {
+      success: true,
+      message: 'Battery strings schema updated successfully or already up-to-date'
+    };
+  } catch (err) {
+    console.error("Error in schema update:", err);
+    return {
+      success: false,
+      message: `Error in schema update: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
+};

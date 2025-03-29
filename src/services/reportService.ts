@@ -10,46 +10,45 @@ export const fetchHistoricalData = async (
   startDate: string,
   endDate: string
 ) => {
-  let table: string;
+  let tableName: 'battery_strings' | 'battery_banks';
   let columns: string;
   
   // Determine which table and columns to query based on dataType
   switch (dataType) {
     case 'voltage':
-      table = 'battery_strings';
+      tableName = 'battery_strings';
       columns = 'id, name, voltage, created_at, bank_id';
       break;
     case 'current':
-      table = 'battery_strings';
+      tableName = 'battery_strings';
       columns = 'id, name, current, created_at, bank_id';
       break;
     case 'temperature':
-      table = 'battery_banks';
+      tableName = 'battery_banks';
       columns = 'id, name, temperature, created_at';
       break;
     case 'stateOfCharge':
-      table = 'battery_strings';
+      tableName = 'battery_strings';
       columns = 'id, name, state_of_charge, created_at, bank_id';
       break;
     case 'all':
-      // For 'all', we'll need to do a more complex query with joins
-      // This is a simplified version
-      table = 'battery_strings';
-      columns = 'id, name, voltage, current, state_of_charge, created_at, bank_id';
+      // For 'all', we'll use battery_strings table
+      tableName = 'battery_strings';
+      columns = 'id, name, voltage, current, created_at, bank_id';
       break;
     default:
       throw new Error(`Unsupported data type: ${dataType}`);
   }
   
   let query = supabase
-    .from(table)
+    .from(tableName)
     .select(columns)
     .gte('created_at', startDate)
     .lte('created_at', endDate);
   
   // Filter by battery bank if specified
   if (batteryBankId !== 'all') {
-    if (table === 'battery_banks') {
+    if (tableName === 'battery_banks') {
       query = query.eq('id', batteryBankId);
     } else {
       query = query.eq('bank_id', batteryBankId);

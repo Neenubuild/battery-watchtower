@@ -34,7 +34,7 @@ export const fetchAlerts = async (
   const { data, error } = await query;
   
   if (error) throw error;
-  return data || [];
+  return (data || []) as Alert[];
 };
 
 export const acknowledgeAlerts = async (alertIds: string[]): Promise<void> => {
@@ -46,15 +46,15 @@ export const acknowledgeAlerts = async (alertIds: string[]): Promise<void> => {
   if (error) throw error;
 };
 
-export const createAlert = async (alert: Omit<Alert, 'id' | 'created_at'>): Promise<Alert> => {
+export const createAlert = async (alert: Omit<Alert, 'id' | 'created_at' | 'updated_at'>): Promise<Alert> => {
   const { data, error } = await supabase
     .from('alerts')
-    .insert([{ ...alert, created_at: new Date().toISOString() }])
+    .insert([{ ...alert, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
     .select()
     .single();
   
   if (error) throw error;
-  return data;
+  return data as Alert;
 };
 
 // Subscribe to new alerts using Supabase realtime
@@ -64,7 +64,7 @@ export const subscribeToAlerts = (callback: (payload: { new: Alert }) => void): 
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'alerts' },
-      callback
+      (payload) => callback(payload as { new: Alert })
     )
     .subscribe();
   

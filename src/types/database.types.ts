@@ -7,6 +7,7 @@ export interface BatteryCell {
   temperature: number;
   status: 'normal' | 'warning' | 'critical' | 'offline';
   created_at: string;
+  updated_at: string;
 }
 
 export interface BatteryString {
@@ -18,6 +19,7 @@ export interface BatteryString {
   state_of_charge: number;
   status: 'normal' | 'warning' | 'critical' | 'offline';
   created_at: string;
+  updated_at: string;
 }
 
 export interface BatteryBank {
@@ -28,6 +30,7 @@ export interface BatteryBank {
   temperature: number;
   status: 'normal' | 'warning' | 'critical' | 'offline';
   created_at: string;
+  updated_at: string;
 }
 
 export interface Charger {
@@ -40,6 +43,8 @@ export interface Charger {
   efficiency: number;
   status: 'normal' | 'warning' | 'critical' | 'offline';
   created_at: string;
+  updated_at: string;
+  power_rating?: number; // Added to match database schema
 }
 
 export interface Alert {
@@ -50,10 +55,12 @@ export interface Alert {
   severity: 'warning' | 'critical';
   acknowledged: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export interface SystemConfig {
   id: string;
+  key?: string; // Added to match database schema
   data_refresh_rate: number;
   cell_voltage_min: number;
   cell_voltage_max: number;
@@ -64,4 +71,5 @@ export interface SystemConfig {
   notification_emails: string[];
   notification_sms: string[];
   updated_at: string;
+  value?: any; // Added to match database schema
 }
