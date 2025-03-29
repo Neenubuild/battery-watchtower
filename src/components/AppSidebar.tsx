@@ -61,11 +61,13 @@ export function AppSidebar() {
                 <NavLink
                   to={item.path}
                   className={({ isActive }) =>
-                    isActive ? "text-scope-orange" : ""
+                    `text-white hover:text-scope-orange ${
+                      isActive ? "text-scope-orange" : ""
+                    }`
                   }
                   end={item.path === "/"}
                 >
-                  <item.icon className="h-5 w-5" />
+                  <item.icon className="h-5 w-5 mr-2" />
                   <span>{item.title}</span>
                 </NavLink>
               </SidebarMenuButton>
@@ -74,10 +76,10 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="py-4 px-4 text-xs text-center text-gray-300">
-        <div className="flex items-center justify-center mb-2">
+        <div className="flex items-center justify-center mb-2 text-white">
           <Cloud className="h-4 w-4 mr-1" /> <span>Connected</span>
         </div>
-        <div>SCOPE BMS v1.0.0</div>
+        <div className="text-white">SCOPE BMS v1.0.0</div>
       </SidebarFooter>
     </Sidebar>
   );
