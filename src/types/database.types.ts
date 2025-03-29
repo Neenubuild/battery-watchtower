@@ -44,7 +44,7 @@ export interface Charger {
   status: 'normal' | 'warning' | 'critical' | 'offline';
   created_at: string;
   updated_at: string;
-  power_rating?: number; // Added to match database schema
+  power_rating: number;
 }
 
 export interface Alert {
@@ -60,7 +60,7 @@ export interface Alert {
 
 export interface SystemConfig {
   id: string;
-  key?: string; // Added to match database schema
+  key: string;
   data_refresh_rate: number;
   cell_voltage_min: number;
   cell_voltage_max: number;
@@ -71,5 +71,5 @@ export interface SystemConfig {
   notification_emails: string[];
   notification_sms: string[];
   updated_at: string;
-  value?: any; // Added to match database schema
+  value: any;
 }

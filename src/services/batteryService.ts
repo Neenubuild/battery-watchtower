@@ -44,7 +44,7 @@ export const fetchStringsByBankId = async (bankId: string): Promise<BatteryStrin
   // Add state_of_charge property if it doesn't exist in the database
   const stringsWithStateOfCharge = (data || []).map(str => ({
     ...str,
-    state_of_charge: str.state_of_charge || 75 // Default value or calculate based on voltage
+    state_of_charge: str.state_of_charge !== undefined ? str.state_of_charge : 75 // Default value or calculate based on voltage
   }));
   
   return stringsWithStateOfCharge as BatteryString[];
@@ -74,7 +74,7 @@ export const fetchChargers = async (): Promise<Charger[]> => {
   // Add power_factor property if it doesn't exist in the database
   const chargersWithPowerFactor = (data || []).map(charger => ({
     ...charger,
-    power_factor: charger.power_factor || charger.efficiency / 100 // Compute from efficiency if not present
+    power_factor: charger.power_factor !== undefined ? charger.power_factor : charger.efficiency / 100 // Compute from efficiency if not present
   }));
   
   return chargersWithPowerFactor as Charger[];
@@ -92,7 +92,7 @@ export const fetchChargerById = async (id: string): Promise<Charger> => {
   // Add power_factor property if it doesn't exist
   const chargerWithPowerFactor = {
     ...data,
-    power_factor: data.power_factor || data.efficiency / 100 // Compute from efficiency if not present
+    power_factor: data.power_factor !== undefined ? data.power_factor : data.efficiency / 100 // Compute from efficiency if not present
   };
   
   return chargerWithPowerFactor as Charger;

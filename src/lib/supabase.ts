@@ -39,7 +39,7 @@ export const checkSupabaseConnection = async () => {
 export const updateBatteryStringsSchema = async () => {
   try {
     // Check if state_of_charge column exists
-    const { data, error } = await supabase.rpc('alter_battery_strings_table_if_needed');
+    const { data, error } = await supabase.rpc('alter_battery_strings_table_if_needed', {});
     
     if (error) {
       console.error("Error updating battery_strings schema:", error.message);

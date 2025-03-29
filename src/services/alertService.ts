@@ -64,7 +64,7 @@ export const subscribeToAlerts = (callback: (payload: { new: Alert }) => void): 
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'alerts' },
-      (payload) => callback(payload as { new: Alert })
+      (payload) => callback({ new: payload.new as Alert })
     )
     .subscribe();
   
