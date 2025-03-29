@@ -24,7 +24,7 @@ export function AppSidebar() {
     {
       title: "Dashboard",
       icon: Database,
-      path: "/",
+      path: "/dashboard",
     },
     {
       title: "Real-Time View",
@@ -49,8 +49,8 @@ export function AppSidebar() {
   ];
 
   return (
-    <Sidebar>
-      <SidebarHeader className="flex items-center justify-center py-6">
+    <Sidebar className="bg-slate-800">
+      <SidebarHeader className="flex items-center justify-center py-6 bg-slate-700">
         <Logo />
       </SidebarHeader>
       <SidebarContent>
@@ -73,7 +73,7 @@ export function AppSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="py-4 px-4 text-xs text-center">
+      <SidebarFooter className="py-4 px-4 text-xs text-center text-gray-300">
         <div className="flex items-center justify-center mb-2">
           <Cloud className="h-4 w-4 mr-1" /> <span>Connected</span>
         </div>

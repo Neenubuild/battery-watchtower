@@ -1,7 +1,10 @@
 
 import { useBatteryData } from "@/hooks/useBatteryData";
+import { useRealBatteryData } from "@/hooks/useRealBatteryData";
 import { BatteryBankCard } from "@/components/BatteryBankCard";
 import { ChargerCard } from "@/components/ChargerCard";
+import { BatteryHistoryChart } from "@/components/BatteryHistoryChart";
+import { BatteryLoadChart } from "@/components/BatteryLoadChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Cloud, Bell, Info } from "lucide-react";
@@ -119,6 +122,12 @@ const Dashboard = () => {
             </div>
           )}
         </div>
+      </div>
+      
+      {/* Charts Section */}
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+        <BatteryHistoryChart />
+        <BatteryLoadChart />
       </div>
       
       <Tabs defaultValue="battery-banks">

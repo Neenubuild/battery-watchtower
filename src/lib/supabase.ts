@@ -15,6 +15,7 @@ export const checkSupabaseConnection = async () => {
     const { error } = await supabase.from('system_config').select('id').limit(1);
     
     if (error) {
+      console.error("Supabase connection error:", error.message);
       return {
         connected: false,
         message: `Failed to connect to Supabase: ${error.message}`
@@ -26,6 +27,7 @@ export const checkSupabaseConnection = async () => {
       message: 'Successfully connected to Supabase'
     };
   } catch (err) {
+    console.error("Error checking Supabase connection:", err);
     return {
       connected: false,
       message: `Error checking Supabase connection: ${err instanceof Error ? err.message : String(err)}`
