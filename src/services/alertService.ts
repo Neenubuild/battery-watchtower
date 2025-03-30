@@ -2,74 +2,83 @@
 import { supabase } from '@/lib/supabase';
 import { Alert } from '@/types/database.types';
 
+// Fetch alerts from the database
 export const fetchAlerts = async (
-  filters: { 
-    acknowledged?: boolean, 
-    severity?: 'warning' | 'critical',
-    source_type?: 'cell' | 'string' | 'bank' | 'charger',
-    limit?: number
-  } = {}
+  limit = 50,
+  severity?: string,
+  acknowledged?: boolean
 ): Promise<Alert[]> => {
   let query = supabase
     .from('alerts')
     .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (filters.acknowledged !== undefined) {
-    query = query.eq('acknowledged', filters.acknowledged);
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (severity) {
+    query = query.eq('severity', severity);
   }
-  
-  if (filters.severity) {
-    query = query.eq('severity', filters.severity);
+
+  if (acknowledged !== undefined) {
+    query = query.eq('acknowledged', acknowledged);
   }
-  
-  if (filters.source_type) {
-    query = query.eq('source_type', filters.source_type);
-  }
-  
-  if (filters.limit) {
-    query = query.limit(filters.limit);
-  }
-  
+
   const { data, error } = await query;
-  
+
   if (error) throw error;
-  return (data || []) as Alert[];
+  return data || [];
 };
 
-export const acknowledgeAlerts = async (alertIds: string[]): Promise<void> => {
+// Acknowledge an alert
+export const acknowledgeAlert = async (alertId: string): Promise<void> => {
   const { error } = await supabase
     .from('alerts')
     .update({ acknowledged: true })
-    .in('id', alertIds);
-  
+    .eq('id', alertId);
+
   if (error) throw error;
 };
 
+// Delete an alert
+export const deleteAlert = async (alertId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('alerts')
+    .delete()
+    .eq('id', alertId);
+
+  if (error) throw error;
+};
+
+// Create a new alert
 export const createAlert = async (alert: Omit<Alert, 'id' | 'created_at' | 'updated_at'>): Promise<Alert> => {
   const { data, error } = await supabase
     .from('alerts')
-    .insert([{ ...alert, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+    .insert({
+      source_id: alert.source_id,
+      source_type: alert.source_type,
+      severity: alert.severity,
+      message: alert.message,
+      acknowledged: alert.acknowledged || false
+    })
     .select()
     .single();
-  
+
   if (error) throw error;
-  return data as Alert;
+  return data;
 };
 
-// Subscribe to new alerts using Supabase realtime
-export const subscribeToAlerts = (callback: (payload: { new: Alert }) => void): (() => void) => {
-  const subscription = supabase
-    .channel('alerts-channel')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'alerts' },
-      (payload) => callback({ new: payload.new as Alert })
-    )
-    .subscribe();
-  
-  // Return unsubscribe function
-  return () => {
-    supabase.removeChannel(subscription);
-  };
+// Create multiple test alerts for development purposes
+export const createTestAlerts = async (count: number): Promise<void> => {
+  const testAlerts = Array.from({ length: count }, (_, i) => ({
+    source_id: `test-source-${i}`,
+    source_type: i % 2 === 0 ? 'battery_bank' : 'charger',
+    severity: i % 3 === 0 ? 'critical' : i % 3 === 1 ? 'warning' : 'info',
+    message: `Test alert message ${i}`,
+    acknowledged: i % 4 === 0
+  }));
+
+  const { error } = await supabase
+    .from('alerts')
+    .insert(testAlerts);
+
+  if (error) throw error;
 };

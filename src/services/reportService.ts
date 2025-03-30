@@ -3,10 +3,27 @@ import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
+// Define types for the historical data parameters to avoid type instantiation issues
+interface HistoricalDataParams {
+  batteryBankId: string;
+  dataType: 'voltage' | 'current' | 'temperature' | 'stateOfCharge' | 'all';
+  startDate: string;
+  endDate: string;
+}
+
+interface ReportParams {
+  batteryBank: string;
+  dataType?: 'voltage' | 'current' | 'temperature' | 'stateOfCharge' | 'all';
+  startDate?: string;
+  endDate?: string;
+  date?: string;
+  month?: string;
+}
+
 // Fetch historical data for reports
 export const fetchHistoricalData = async (
   batteryBankId: string,
-  dataType: string,
+  dataType: 'voltage' | 'current' | 'temperature' | 'stateOfCharge' | 'all',
   startDate: string,
   endDate: string
 ) => {
@@ -67,7 +84,7 @@ export const fetchHistoricalData = async (
 // Generate and download Excel report
 export const generateExcelReport = async (
   reportType: 'historical' | 'daily' | 'monthly',
-  params: any
+  params: ReportParams
 ): Promise<string> => {
   try {
     let data;
@@ -75,6 +92,9 @@ export const generateExcelReport = async (
     
     switch (reportType) {
       case 'historical':
+        if (!params.dataType || !params.startDate || !params.endDate) {
+          throw new Error('Missing required parameters for historical report');
+        }
         data = await fetchHistoricalData(
           params.batteryBank,
           params.dataType,
@@ -84,6 +104,9 @@ export const generateExcelReport = async (
         fileName = `Historical_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
         break;
       case 'daily':
+        if (!params.date) {
+          throw new Error('Missing date parameter for daily report');
+        }
         // For daily reports, we fetch data for just that day
         const dayStart = new Date(params.date);
         dayStart.setHours(0, 0, 0, 0);
@@ -100,6 +123,9 @@ export const generateExcelReport = async (
         fileName = `Daily_Report_${new Date(params.date).toISOString().split('T')[0]}.xlsx`;
         break;
       case 'monthly':
+        if (!params.month) {
+          throw new Error('Missing month parameter for monthly report');
+        }
         // For monthly reports, we fetch data for that month
         const monthStart = new Date(params.month);
         monthStart.setDate(1);
