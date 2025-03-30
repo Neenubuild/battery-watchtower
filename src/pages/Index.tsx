@@ -1,3 +1,4 @@
+
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,7 @@ const Index = () => {
           Remote Battery Management System (BMS) and Battery Charger Monitoring System (BCMS)
         </p>
         
-        <div className="flex justify-center gap-6">
+        <div className="flex justify-center items-center space-x-6">
           <Card className="hover:shadow-lg transition-shadow duration-300 w-full max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center justify-center gap-2 text-blue-800">
@@ -26,16 +27,16 @@ const Index = () => {
                 Monitor and manage your battery banks, strings, and cells
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 text-center">
+            <CardContent className="text-center">
+              <p className="text-gray-600">
                 View real-time battery data, status information, and receive alerts for potential issues.
               </p>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="justify-center">
               <Button 
                 asChild 
                 variant="outline" 
-                className="w-full border-blue-500 text-blue-700 hover:bg-blue-50"
+                className="w-full max-w-xs border-blue-500 text-blue-700 hover:bg-blue-50"
               >
                 {!user ? (
                   <Link to="/auth">Login to Dashboard</Link>
@@ -56,16 +57,16 @@ const Index = () => {
                 Monitor your battery charging infrastructure
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 text-center">
+            <CardContent className="text-center">
+              <p className="text-gray-600">
                 Track charger status, power metrics, efficiency, and receive notifications about charging issues.
               </p>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="justify-center">
               <Button 
                 asChild 
                 variant="outline" 
-                className="w-full border-green-500 text-green-700 hover:bg-green-50"
+                className="w-full max-w-xs border-green-500 text-green-700 hover:bg-green-50"
               >
                 {!user ? (
                   <Link to="/auth">Login to View</Link>
