@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,12 +26,10 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Update active tab when URL params change
   useEffect(() => {
     setActiveTab(tabParam === 'signup' ? 'signup' : 'login');
   }, [tabParam]);
 
-  // Redirect to dashboard if already logged in
   if (user) {
     navigate('/dashboard');
     return null;
@@ -80,7 +77,6 @@ const Auth = () => {
         description: "You can now sign in with your credentials",
       });
       
-      // Switch to login tab
       setActiveTab('login');
     } catch (error: any) {
       setSignupError(error.message || 'An error occurred during sign up');
@@ -91,8 +87,7 @@ const Auth = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-slate-900 to-slate-800">
-      <div className="w-full max-w-md">
-        {/* Logo */}
+      <div className="w-full max-w-md flex flex-col items-center">
         <div className="mb-8 text-center flex flex-col items-center">
           <div className="inline-block p-4 rounded-full bg-white/5 backdrop-blur-sm mb-4">
             <BatteryCharging className="h-12 w-12 text-scope-orange" />
@@ -103,7 +98,7 @@ const Auth = () => {
           </p>
         </div>
         
-        <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm shadow-xl">
+        <Card className="w-full border-slate-700 bg-slate-800/50 backdrop-blur-sm shadow-xl">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-xl font-bold text-center text-white">
               {activeTab === 'login' ? 'Sign in to your account' : 'Create an account'}

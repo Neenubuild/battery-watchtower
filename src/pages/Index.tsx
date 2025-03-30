@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +15,7 @@ const Index = () => {
           Remote Battery Management System (BMS) and Battery Charger Monitoring System (BCMS)
         </p>
         
-        <div className="grid md:grid-cols-2 gap-6 place-items-center">
+        <div className="flex justify-center gap-6">
           <Card className="hover:shadow-lg transition-shadow duration-300 w-full max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center justify-center gap-2 text-blue-800">
