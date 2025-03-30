@@ -61,7 +61,7 @@ export function AppSidebar() {
                 <NavLink
                   to={item.path}
                   className={({ isActive }) =>
-                    `text-white hover:text-scope-orange ${
+                    `flex items-center text-white hover:text-scope-orange ${
                       isActive ? "text-scope-orange" : "text-white"
                     }`
                   }

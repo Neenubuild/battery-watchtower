@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -111,8 +112,8 @@ const Auth = () => {
                 <TabsTrigger value="signup">Register</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
+              <TabsContent value="login" className="flex flex-col items-center">
+                <form onSubmit={handleLogin} className="space-y-4 w-full">
                   {loginError && (
                     <Alert variant="destructive" className="mb-4">
                       <AlertCircle className="h-4 w-4" />
@@ -164,8 +165,8 @@ const Auth = () => {
                 </form>
               </TabsContent>
               
-              <TabsContent value="signup">
-                <form onSubmit={handleSignup} className="space-y-4">
+              <TabsContent value="signup" className="flex flex-col items-center">
+                <form onSubmit={handleSignup} className="space-y-4 w-full">
                   {signupError && (
                     <Alert variant="destructive" className="mb-4">
                       <AlertCircle className="h-4 w-4" />

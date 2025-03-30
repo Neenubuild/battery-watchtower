@@ -16,7 +16,7 @@ const Index = () => {
           Remote Battery Management System (BMS) and Battery Charger Monitoring System (BCMS)
         </p>
         
-        <div className="flex justify-center items-center space-x-6">
+        <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-8">
           <Card className="hover:shadow-lg transition-shadow duration-300 w-full max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center justify-center gap-2 text-blue-800">
@@ -32,7 +32,7 @@ const Index = () => {
                 View real-time battery data, status information, and receive alerts for potential issues.
               </p>
             </CardContent>
-            <CardFooter className="justify-center">
+            <CardFooter className="flex justify-center">
               <Button 
                 asChild 
                 variant="outline" 
@@ -62,7 +62,7 @@ const Index = () => {
                 Track charger status, power metrics, efficiency, and receive notifications about charging issues.
               </p>
             </CardContent>
-            <CardFooter className="justify-center">
+            <CardFooter className="flex justify-center">
               <Button 
                 asChild 
                 variant="outline" 
