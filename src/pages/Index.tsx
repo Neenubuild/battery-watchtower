@@ -16,8 +16,8 @@ const Index = () => {
           Remote Battery Management System (BMS) and Battery Charger Monitoring System (BCMS)
         </p>
         
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card className="hover:shadow-lg transition-shadow duration-300">
+        <div className="grid md:grid-cols-2 gap-6 place-items-center">
+          <Card className="hover:shadow-lg transition-shadow duration-300 w-full max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center justify-center gap-2 text-blue-800">
                 <Database className="h-6 w-6" />
@@ -47,7 +47,7 @@ const Index = () => {
             </CardFooter>
           </Card>
           
-          <Card className="hover:shadow-lg transition-shadow duration-300">
+          <Card className="hover:shadow-lg transition-shadow duration-300 w-full max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center justify-center gap-2 text-green-800">
                 <Zap className="h-6 w-6" />

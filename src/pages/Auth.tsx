@@ -93,7 +93,7 @@ const Auth = () => {
     <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-slate-900 to-slate-800">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="mb-8 text-center">
+        <div className="mb-8 text-center flex flex-col items-center">
           <div className="inline-block p-4 rounded-full bg-white/5 backdrop-blur-sm mb-4">
             <BatteryCharging className="h-12 w-12 text-scope-orange" />
           </div>
