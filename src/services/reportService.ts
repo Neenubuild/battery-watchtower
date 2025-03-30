@@ -3,15 +3,15 @@ import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
-// Define types for the historical data parameters to avoid type instantiation issues
-interface HistoricalDataParams {
+// Define types for report parameters
+export interface HistoricalDataParams {
   batteryBankId: string;
   dataType: 'voltage' | 'current' | 'temperature' | 'stateOfCharge' | 'all';
   startDate: string;
   endDate: string;
 }
 
-interface ReportParams {
+export interface ReportParams {
   batteryBank: string;
   dataType?: 'voltage' | 'current' | 'temperature' | 'stateOfCharge' | 'all';
   startDate?: string;

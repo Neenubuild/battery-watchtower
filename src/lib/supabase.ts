@@ -61,3 +61,63 @@ export const updateBatteryStringsSchema = async () => {
     };
   }
 };
+
+// Fetch system configuration
+export const fetchSystemConfig = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('system_config')
+      .select('*');
+    
+    if (error) {
+      throw error;
+    }
+    
+    return data || [];
+  } catch (err) {
+    console.error("Error fetching system config:", err);
+    throw err;
+  }
+};
+
+// Update system configuration
+export const updateSystemConfig = async (key: string, value: any) => {
+  try {
+    // Check if the config exists
+    const { data: existingConfig, error: fetchError } = await supabase
+      .from('system_config')
+      .select('*')
+      .eq('key', key)
+      .maybeSingle();
+    
+    if (fetchError) {
+      throw fetchError;
+    }
+    
+    if (existingConfig) {
+      // Update existing config
+      const { error: updateError } = await supabase
+        .from('system_config')
+        .update({ value })
+        .eq('key', key);
+      
+      if (updateError) {
+        throw updateError;
+      }
+    } else {
+      // Insert new config
+      const { error: insertError } = await supabase
+        .from('system_config')
+        .insert({ key, value });
+      
+      if (insertError) {
+        throw insertError;
+      }
+    }
+    
+    return { success: true };
+  } catch (err) {
+    console.error("Error updating system config:", err);
+    throw err;
+  }
+};

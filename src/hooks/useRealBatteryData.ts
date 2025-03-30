@@ -94,9 +94,9 @@ export const useRealBatteryData = (updateInterval = 10000) => {
           // Transform cells
           const cells: Cell[] = dbCells.map(dbCell => ({
             id: dbCell.id,
-            voltage: dbCell.voltage,
-            temperature: dbCell.temperature,
-            status: dbCell.status
+            voltage: dbCell.voltage || 0,
+            temperature: dbCell.temperature || 0,
+            status: mapStatus(dbCell.status)
           }));
 
           // Calculate alerts based on cell statuses
@@ -104,16 +104,16 @@ export const useRealBatteryData = (updateInterval = 10000) => {
           if (cells.some(cell => cell.status === 'warning')) alerts.push('Cell voltage warning');
           if (cells.some(cell => cell.status === 'critical')) alerts.push('Cell voltage critical');
           if (cells.some(cell => cell.status === 'offline')) alerts.push('Cell communication lost');
-          if (dbString.current > 25) alerts.push('High discharge current');
+          if (dbString.current && dbString.current > 25) alerts.push('High discharge current');
 
           return {
             id: dbString.id,
             name: dbString.name,
-            voltage: dbString.voltage,
-            current: dbString.current,
-            stateOfCharge: dbString.state_of_charge,
+            voltage: dbString.voltage || 0,
+            current: dbString.current || 0,
+            stateOfCharge: dbString.state_of_charge || 0,
             cells,
-            status: dbString.status,
+            status: mapStatus(dbString.status),
             alerts
           };
         });
@@ -121,11 +121,11 @@ export const useRealBatteryData = (updateInterval = 10000) => {
         return {
           id: dbBank.id,
           name: dbBank.name,
-          location: dbBank.location,
-          installDate: dbBank.install_date,
+          location: dbBank.location || '',
+          installDate: dbBank.install_date || '',
           strings,
-          temperature: dbBank.temperature,
-          status: dbBank.status
+          temperature: dbBank.temperature || 0,
+          status: mapStatus(dbBank.status)
         };
       });
 
@@ -134,15 +134,15 @@ export const useRealBatteryData = (updateInterval = 10000) => {
         // Calculate alerts based on charger parameters
         const alerts: string[] = [];
         
-        if (dbCharger.input_ac_voltage < 225 || dbCharger.input_ac_voltage > 235) {
+        if (dbCharger.input_ac_voltage && (dbCharger.input_ac_voltage < 225 || dbCharger.input_ac_voltage > 235)) {
           alerts.push('AC input voltage outside ideal range');
         }
         
-        if (dbCharger.output_dc_voltage > 53) {
+        if (dbCharger.output_dc_voltage && dbCharger.output_dc_voltage > 53) {
           alerts.push('High DC output voltage');
         }
         
-        if (dbCharger.output_dc_current > 22) {
+        if (dbCharger.output_dc_current && dbCharger.output_dc_current > 22) {
           alerts.push('High output current');
         }
         
@@ -153,12 +153,12 @@ export const useRealBatteryData = (updateInterval = 10000) => {
         return {
           id: dbCharger.id,
           name: dbCharger.name,
-          inputACVoltage: dbCharger.input_ac_voltage,
-          outputDCVoltage: dbCharger.output_dc_voltage,
-          outputDCCurrent: dbCharger.output_dc_current,
-          powerFactor: dbCharger.power_factor,
-          efficiency: dbCharger.efficiency,
-          status: dbCharger.status,
+          inputACVoltage: dbCharger.input_ac_voltage || 0,
+          outputDCVoltage: dbCharger.output_dc_voltage || 0,
+          outputDCCurrent: dbCharger.output_dc_current || 0,
+          powerFactor: dbCharger.power_factor || 0,
+          efficiency: dbCharger.efficiency || 0,
+          status: mapStatus(dbCharger.status),
           alerts
         };
       });
@@ -172,6 +172,18 @@ export const useRealBatteryData = (updateInterval = 10000) => {
       console.error('Error transforming data:', err);
       setError('Error processing battery data');
       return null;
+    }
+  };
+
+  // Helper function to map DB status to UI status
+  const mapStatus = (status: string | null | undefined): 'normal' | 'warning' | 'critical' | 'offline' => {
+    if (!status) return 'normal';
+    
+    switch (status) {
+      case 'warning': return 'warning';
+      case 'critical': return 'critical';
+      case 'offline': return 'offline';
+      default: return 'normal';
     }
   };
 

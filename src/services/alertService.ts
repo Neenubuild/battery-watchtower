@@ -4,22 +4,34 @@ import { Alert } from '@/types/database.types';
 
 // Fetch alerts from the database
 export const fetchAlerts = async (
-  limit = 50,
-  severity?: string,
-  acknowledged?: boolean
+  filters: { 
+    acknowledged?: boolean, 
+    severity?: string,
+    source_type?: string,
+    limit?: number
+  } = {}
 ): Promise<Alert[]> => {
   let query = supabase
     .from('alerts')
     .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
+    .order('created_at', { ascending: false });
 
-  if (severity) {
-    query = query.eq('severity', severity);
+  if (filters.limit) {
+    query = query.limit(filters.limit);
+  } else {
+    query = query.limit(50); // Default limit
   }
 
-  if (acknowledged !== undefined) {
-    query = query.eq('acknowledged', acknowledged);
+  if (filters.severity) {
+    query = query.eq('severity', filters.severity);
+  }
+
+  if (filters.source_type) {
+    query = query.eq('source_type', filters.source_type);
+  }
+
+  if (filters.acknowledged !== undefined) {
+    query = query.eq('acknowledged', filters.acknowledged);
   }
 
   const { data, error } = await query;
@@ -28,12 +40,24 @@ export const fetchAlerts = async (
   return data || [];
 };
 
-// Acknowledge an alert
+// Acknowledge a single alert
 export const acknowledgeAlert = async (alertId: string): Promise<void> => {
   const { error } = await supabase
     .from('alerts')
     .update({ acknowledged: true })
     .eq('id', alertId);
+
+  if (error) throw error;
+};
+
+// Acknowledge multiple alerts
+export const acknowledgeAlerts = async (alertIds: string[]): Promise<void> => {
+  if (alertIds.length === 0) return;
+  
+  const { error } = await supabase
+    .from('alerts')
+    .update({ acknowledged: true })
+    .in('id', alertIds);
 
   if (error) throw error;
 };
@@ -64,6 +88,20 @@ export const createAlert = async (alert: Omit<Alert, 'id' | 'created_at' | 'upda
 
   if (error) throw error;
   return data;
+};
+
+// Subscribe to real-time alerts
+export const subscribeToAlerts = (callback: (payload: any) => void) => {
+  const subscription = supabase
+    .channel('alerts-changes')
+    .on('INSERT', (payload) => {
+      callback(payload);
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(subscription);
+  };
 };
 
 // Create multiple test alerts for development purposes

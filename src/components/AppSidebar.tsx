@@ -62,7 +62,7 @@ export function AppSidebar() {
                   to={item.path}
                   className={({ isActive }) =>
                     `text-white hover:text-scope-orange ${
-                      isActive ? "text-scope-orange" : ""
+                      isActive ? "text-scope-orange" : "text-white"
                     }`
                   }
                   end={item.path === "/"}
