@@ -54,10 +54,10 @@ export function AppSidebar() {
         <Logo />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarMenu>
+        <SidebarMenu className="flex flex-col items-center">
           {menuItems.map((item) => (
-            <SidebarMenuItem key={item.path}>
-              <SidebarMenuButton asChild>
+            <SidebarMenuItem key={item.path} className="w-full flex justify-center">
+              <SidebarMenuButton asChild className="w-full flex justify-center">
                 <NavLink
                   to={item.path}
                   className={({ isActive }) =>

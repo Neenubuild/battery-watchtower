@@ -83,11 +83,10 @@ export const createAlert = async (alert: Omit<Alert, 'id' | 'created_at' | 'upda
       message: alert.message,
       acknowledged: alert.acknowledged || false
     })
-    .select()
-    .single();
+    .select();
 
   if (error) throw error;
-  return data;
+  return data[0];
 };
 
 // Subscribe to real-time alerts
